@@ -27,4 +27,41 @@ To deploy, run terraform Init, terraform plan, terraform apply
 To destroy, run terraform destroy
 
 What you would improve in production
-In production, there is need to add a NAT Gatway, to enable the infrastructures deployed in the private subnet to have access to internet, for updates
+In production, there is need to add a NAT Gatway, to enable the infrastructures deployed in the private subnet to have access to internet, for updates and installation of userdata scripts.
+
+4. Application Load Balancers
+   Added an application load balancer which sits in the public subnet and acts as the entry point to our server. so the servers which are in the private subnets will be reached through the ALB, this reduces the attack surface of our application. The ALB listens on port 80 and forward all HTTP traffic the the designated target groups.
+
+5. EC2 Instances
+   Created EC2 Instances with a custom security group. the instance security group does not allow access via any other means except through the security group of the ALB. this is a good security strategy making it difficult to access the servers directly using ssh or via public IP's. The EC2 target groups are also configured to perform health check to determine the status of the ec2 instances.
+
+This is the current flow of traffic in the Network:
+
+# Traffic Flow Diagram
+
+````mermaid
+graph TD
+    A[Internet User] -->|HTTP Request| B[Application Load Balancer<br/>Public Subnets<br/>Security Group: alb_sg<br/>Port 80 open to 0.0.0.0/0]
+    B -->|Forwards to Target Group| C[Target Group<br/>Port 80]
+    C -->|Routes to| D[EC2 Instance<br/>Private Subnet<br/>Security Group: ec2_sg<br/>Port 80 open only from alb_sg]
+    D -->|Serves Content| E[Response back through ALB]
+
+    subgraph "VPC (10.0.0.0/16)"
+        subgraph "Public Subnets"
+            B
+        end
+        subgraph "Private Subnets"
+            D
+        end
+        F[Internet Gateway] -->|Routes 0.0.0.0/0| B
+    end
+
+    style A fill:#e1f5fe
+    style B fill:#c8e6c9
+    style C fill:#fff3e0
+    style D fill:#ffcdd2
+    style E fill:#f3e5f5
+    style F fill:#e8f5e8
+```</content>
+<parameter name="filePath">/home/nayo/2026-devops/aws-terraform-infra/traffic_flow_diagram.md
+````
